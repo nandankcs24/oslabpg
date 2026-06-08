@@ -1,0 +1,427 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+#include <string.h>
+
+// ==============================================================================
+// PROGRAM 1: CPU SCHEDULING ALGORITHMS (FCFS, SJF, Priority, Round Robin)
+// ==============================================================================
+
+void fcfs(int n, int bt[]) {
+    int wt[20]={0}, tat[20];
+    for(int i=1; i<n; i++) wt[i] = wt[i-1] + bt[i-1];
+    for(int i=0; i<n; i++) tat[i] = wt[i] + bt[i];
+    for(int i=0; i<n; i++) printf("P%d BT:%d WT:%d TAT:%d\n", i+1, bt[i], wt[i], tat[i]);
+}
+
+void sjf(int n, int bt[], int p[]) {
+    int wt[20]={0}, tat[20], temp;
+    for(int i=0; i<n-1; i++) {
+        for(int j=0; j<n-i-1; j++) {
+            if(bt[j] > bt[j+1]) {
+                temp=bt[j]; bt[j]=bt[j+1]; bt[j+1]=temp;
+                temp=p[j]; p[j]=p[j+1]; p[j+1]=temp;
+            }
+        }
+    }
+    for(int i=1; i<n; i++) wt[i] = wt[i-1] + bt[i-1];
+    for(int i=0; i<n; i++) tat[i] = wt[i] + bt[i];
+    for(int i=0; i<n; i++) printf("P%d BT:%d WT:%d TAT:%d\n", p[i], bt[i], wt[i], tat[i]);
+}
+
+void priority_sched(int n, int bt[], int pr[], int p[]) {
+    int wt[20]={0}, tat[20], temp;
+    for(int i=0; i<n-1; i++) {
+        for(int j=0; j<n-i-1; j++) {
+            if(pr[j] > pr[j+1]) {
+                temp=pr[j]; pr[j]=pr[j+1]; pr[j+1]=temp;
+                temp=bt[j]; bt[j]=bt[j+1]; bt[j+1]=temp;
+                temp=p[j]; p[j]=p[j+1]; p[j+1]=temp;
+            }
+        }
+    }
+    for(int i=1; i<n; i++) wt[i] = wt[i-1] + bt[i-1];
+    for(int i=0; i<n; i++) tat[i] = wt[i] + bt[i];
+    for(int i=0; i<n; i++) printf("P%d BT:%d PR:%d WT:%d TAT:%d\n", p[i], bt[i], pr[i], wt[i], tat[i]);
+}
+
+void rr(int n, int bt[], int tq) {
+    int rem_bt[20], wt[20]={0}, tat[20], t=0;
+    for(int i=0; i<n; i++) rem_bt[i] = bt[i];
+    while(1) {
+        int done = 1;
+        for(int i=0; i<n; i++) {
+            if(rem_bt[i] > 0) {
+                done = 0;
+                if(rem_bt[i] > tq) { t += tq; rem_bt[i] -= tq; }
+                else { t = t + rem_bt[i]; wt[i] = t - bt[i]; rem_bt[i] = 0; }
+            }
+        }
+        if(done == 1) break;
+    }
+    for(int i=0; i<n; i++) tat[i] = bt[i] + wt[i];
+    for(int i=0; i<n; i++) printf("P%d BT:%d WT:%d TAT:%d\n", i+1, bt[i], wt[i], tat[i]);
+}
+
+int main_program_1() {
+    int n=3, bt1[]={10,5,8}, bt2[]={10,5,8}, p1[]={1,2,3};
+    int bt3[]={10,5,8}, pr[]={2,1,3}, p2[]={1,2,3}, bt4[]={10,5,8};
+    printf("FCFS:\n"); fcfs(n, bt1);
+    printf("SJF:\n"); sjf(n, bt2, p1);
+    printf("Priority:\n"); priority_sched(n, bt3, pr, p2);
+    printf("Round Robin (TQ=2):\n"); rr(n, bt4, 2);
+    return 0;
+}
+
+
+// ==============================================================================
+// PROGRAM 2: MULTI-LEVEL QUEUE SCHEDULING
+// ==============================================================================
+
+int main_program_2() {
+    int sys_n = 2, usr_n = 2;
+    int sys_bt[] = {4, 3}, usr_bt[] = {2, 5};
+    int sys_p[] = {1, 2}, usr_p[] = {1, 2};
+    int wt=0, tat=0;
+
+    printf("System Processes (Higher Priority):\n");
+    for(int i=0; i<sys_n; i++) {
+        tat = wt + sys_bt[i];
+        printf("Sys P%d BT:%d WT:%d TAT:%d\n", sys_p[i], sys_bt[i], wt, tat);
+        wt += sys_bt[i];
+    }
+
+    printf("User Processes (Lower Priority):\n");
+    for(int i=0; i<usr_n; i++) {
+        tat = wt + usr_bt[i];
+        printf("Usr P%d BT:%d WT:%d TAT:%d\n", usr_p[i], usr_bt[i], wt, tat);
+        wt += usr_bt[i];
+    }
+    return 0;
+}
+
+
+// ==============================================================================
+// PROGRAM 3: REAL-TIME SCHEDULING (Rate-Monotonic, EDF, Proportional)
+// ==============================================================================
+
+void rms(int n, int c[], int p[]) {
+    printf("Rate Monotonic Scheduling:\n");
+    for(int i=0; i<n-1; i++) {
+        for(int j=0; j<n-i-1; j++) {
+            if(p[j] > p[j+1]) {
+                int t = p[j]; p[j]=p[j+1]; p[j+1]=t;
+                t = c[j]; c[j]=c[j+1]; c[j+1]=t;
+            }
+        }
+    }
+    float u = 0;
+    for(int i=0; i<n; i++) u += (float)c[i]/p[i];
+    printf("Utilization: %f\n", u);
+    if(u <= 1.0) printf("Schedulable\n");
+    else printf("Not Schedulable\n");
+}
+
+void edf(int n, int c[], int d[]) {
+    printf("Earliest Deadline First:\n");
+    for(int i=0; i<n-1; i++) {
+        for(int j=0; j<n-i-1; j++) {
+            if(d[j] > d[j+1]) {
+                int t = d[j]; d[j]=d[j+1]; d[j+1]=t;
+                t = c[j]; c[j]=c[j+1]; c[j+1]=t;
+            }
+        }
+    }
+    float u = 0;
+    for(int i=0; i<n; i++) u += (float)c[i]/d[i];
+    printf("Utilization: %f\n", u);
+    if(u <= 1.0) printf("Schedulable\n");
+    else printf("Not Schedulable\n");
+}
+
+void proportional(int n, int tickets[]) {
+    printf("Proportional Scheduling:\n");
+    int total = 0;
+    for(int i=0; i<n; i++) total += tickets[i];
+    for(int i=0; i<n; i++) {
+        printf("Process %d Share: %.2f%%\n", i+1, ((float)tickets[i]/total)*100);
+    }
+}
+
+int main_program_3() {
+    int n=3;
+    int c1[]={1, 2, 1}, p1[]={4, 5, 10};
+    rms(n, c1, p1);
+    int c2[]={1, 2, 1}, d2[]={4, 5, 10};
+    edf(n, c2, d2);
+    int t[]={10, 20, 30};
+    proportional(n, t);
+    return 0;
+}
+
+
+// ==============================================================================
+// PROGRAM 4: PROCESS SYNCHRONIZATION (Producer-Consumer, Dining Philosophers)
+// ==============================================================================
+
+sem_t empty, full, mutex_sem, forks[5];
+int buffer[5], in=0, out=0;
+
+void* producer(void* arg) {
+    for(int i=0; i<3; i++) {
+        sem_wait(&empty);
+        sem_wait(&mutex_sem);
+        buffer[in] = 1;
+        printf("Produced at %d\n", in);
+        in = (in+1)%5;
+        sem_post(&mutex_sem);
+        sem_post(&full);
+    }
+    return NULL;
+}
+
+void* consumer(void* arg) {
+    for(int i=0; i<3; i++) {
+        sem_wait(&full);
+        sem_wait(&mutex_sem);
+        printf("Consumed from %d\n", out);
+        out = (out+1)%5;
+        sem_post(&mutex_sem);
+        sem_post(&empty);
+    }
+    return NULL;
+}
+
+void* philosopher(void* arg) {
+    int id = *(int*)arg;
+    sem_wait(&forks[id]);
+    sem_wait(&forks[(id+1)%5]);
+    printf("Philosopher %d eating\n", id);
+    sem_post(&forks[id]);
+    sem_post(&forks[(id+1)%5]);
+    return NULL;
+}
+
+int main_program_4() {
+    pthread_t prod, cons, phils[5];
+    sem_init(&empty, 0, 5);
+    sem_init(&full, 0, 0);
+    sem_init(&mutex_sem, 0, 1);
+    
+    printf("Producer-Consumer:\n");
+    pthread_create(&prod, NULL, producer, NULL);
+    pthread_create(&cons, NULL, consumer, NULL);
+    pthread_join(prod, NULL);
+    pthread_join(cons, NULL);
+
+    printf("Dining Philosophers:\n");
+    int ids[5];
+    for(int i=0; i<5; i++) sem_init(&forks[i], 0, 1);
+    for(int i=0; i<5; i++) { ids[i]=i; pthread_create(&phils[i], NULL, philosopher, &ids[i]); }
+    for(int i=0; i<5; i++) pthread_join(phils[i], NULL);
+    return 0;
+}
+
+
+// ==============================================================================
+// PROGRAM 5: DEADLOCK AVOIDANCE & DETECTION (Bankers Algorithm)
+// ==============================================================================
+
+void bankers(int n, int m, int alloc[][3], int max[][3], int avail[]) {
+    int f[10]={0}, ans[10], ind=0, need[10][3];
+    for(int i=0; i<n; i++)
+        for(int j=0; j<m; j++)
+            need[i][j] = max[i][j] - alloc[i][j];
+
+    for(int k=0; k<5; k++) {
+        for(int i=0; i<n; i++) {
+            if(f[i] == 0) {
+                int flag = 0;
+                for(int j=0; j<m; j++) {
+                    if(need[i][j] > avail[j]) { flag = 1; break; }
+                }
+                if(flag == 0) {
+                    ans[ind++] = i;
+                    for(int y=0; y<m; y++) avail[y] += alloc[i][y];
+                    f[i] = 1;
+                }
+            }
+        }
+    }
+    int flag = 1;
+    for(int i=0; i<n; i++) if(f[i] == 0) { flag = 0; break; }
+    if(flag) {
+        printf("Safe Sequence: ");
+        for(int i=0; i<n-1; i++) printf("P%d -> ", ans[i]);
+        printf("P%d\n", ans[n-1]);
+    } else {
+        printf("Not Safe\n");
+    }
+}
+
+void deadlock_detection(int n, int m, int alloc[][3], int req[][3], int avail[]) {
+    int f[10]={0}, finish=0;
+    for(int k=0; k<5; k++) {
+        for(int i=0; i<n; i++) {
+            if(f[i] == 0) {
+                int flag = 0;
+                for(int j=0; j<m; j++) {
+                    if(req[i][j] > avail[j]) { flag = 1; break; }
+                }
+                if(flag == 0) {
+                    for(int y=0; y<m; y++) avail[y] += alloc[i][y];
+                    f[i] = 1; finish++;
+                }
+            }
+        }
+    }
+    if(finish == n) printf("No Deadlock\n");
+    else printf("Deadlock Detected\n");
+}
+
+int main_program_5() {
+    int n=5, m=3;
+    int alloc[5][3] = {{0,1,0},{2,0,0},{3,0,2},{2,1,1},{0,0,2}};
+    int max[5][3] = {{7,5,3},{3,2,2},{9,0,2},{2,2,2},{4,3,3}};
+    int avail[3] = {3,3,2};
+    printf("Bankers Algorithm:\n");
+    bankers(n, m, alloc, max, avail);
+
+    int req[5][3] = {{0,0,0},{2,0,2},{0,0,0},{1,0,0},{0,0,2}};
+    int avail2[3] = {0,0,0};
+    printf("Deadlock Detection:\n");
+    deadlock_detection(n, m, alloc, req, avail2);
+    return 0;
+}
+
+
+// ==============================================================================
+// PROGRAM 6: MEMORY ALLOCATION (Worst-fit, Best-fit, First-fit)
+// ==============================================================================
+
+void worst_fit(int b[], int m, int p[], int n) {
+    int alloc[10], b_copy[10];
+    for(int i=0; i<n; i++) alloc[i] = -1;
+    for(int i=0; i<m; i++) b_copy[i] = b[i];
+
+    for(int i=0; i<n; i++) {
+        int wstIdx = -1;
+        for(int j=0; j<m; j++) {
+            if(b_copy[j] >= p[i]) {
+                if(wstIdx == -1 || b_copy[wstIdx] < b_copy[j]) wstIdx = j;
+            }
+        }
+        if(wstIdx != -1) { alloc[i] = wstIdx; b_copy[wstIdx] -= p[i]; }
+    }
+    for(int i=0; i<n; i++) printf("P%d: %d\n", i+1, alloc[i] != -1 ? alloc[i]+1 : -1);
+}
+
+void best_fit(int b[], int m, int p[], int n) {
+    int alloc[10], b_copy[10];
+    for(int i=0; i<n; i++) alloc[i] = -1;
+    for(int i=0; i<m; i++) b_copy[i] = b[i];
+
+    for(int i=0; i<n; i++) {
+        int bstIdx = -1;
+        for(int j=0; j<m; j++) {
+            if(b_copy[j] >= p[i]) {
+                if(bstIdx == -1 || b_copy[bstIdx] > b_copy[j]) bstIdx = j;
+            }
+        }
+        if(bstIdx != -1) { alloc[i] = bstIdx; b_copy[bstIdx] -= p[i]; }
+    }
+    for(int i=0; i<n; i++) printf("P%d: %d\n", i+1, alloc[i] != -1 ? alloc[i]+1 : -1);
+}
+
+void first_fit(int b[], int m, int p[], int n) {
+    int alloc[10], b_copy[10];
+    for(int i=0; i<n; i++) alloc[i] = -1;
+    for(int i=0; i<m; i++) b_copy[i] = b[i];
+
+    for(int i=0; i<n; i++) {
+        for(int j=0; j<m; j++) {
+            if(b_copy[j] >= p[i]) {
+                alloc[i] = j; b_copy[j] -= p[i]; break;
+            }
+        }
+    }
+    for(int i=0; i<n; i++) printf("P%d: %d\n", i+1, alloc[i] != -1 ? alloc[i]+1 : -1);
+}
+
+int main_program_6() {
+    int b[] = {100, 500, 200, 300, 600};
+    int p[] = {212, 417, 112, 426};
+    printf("Worst Fit:\n"); worst_fit(b, 5, p, 4);
+    printf("Best Fit:\n"); best_fit(b, 5, p, 4);
+    printf("First Fit:\n"); first_fit(b, 5, p, 4);
+    return 0;
+}
+
+
+// ==============================================================================
+// PROGRAM 7: PAGE REPLACEMENT ALGORITHMS (FIFO, LRU, Optimal)
+// ==============================================================================
+
+void fifo(int pages[], int n, int f) {
+    int frames[10], faults=0, idx=0;
+    for(int i=0; i<f; i++) frames[i] = -1;
+    for(int i=0; i<n; i++) {
+        int hit = 0;
+        for(int j=0; j<f; j++) if(frames[j] == pages[i]) { hit = 1; break; }
+        if(!hit) {
+            frames[idx] = pages[i];
+            idx = (idx + 1) % f;
+            faults++;
+        }
+    }
+    printf("FIFO Faults: %d\n", faults);
+}
+
+void lru(int pages[], int n, int f) {
+    int frames[10], time_arr[10], faults=0;
+    for(int i=0; i<f; i++) frames[i] = -1;
+    for(int i=0; i<n; i++) {
+        int hit = 0, lru_idx = 0, min_time = i;
+        for(int j=0; j<f; j++) {
+            if(frames[j] == pages[i]) { hit = 1; time_arr[j] = i; break; }
+            if(frames[j] == -1) { lru_idx = j; min_time = -1; }
+            else if(time_arr[j] < min_time && min_time != -1) { min_time = time_arr[j]; lru_idx = j; }
+        }
+        if(!hit) { frames[lru_idx] = pages[i]; time_arr[lru_idx] = i; faults++; }
+    }
+    printf("LRU Faults: %d\n", faults);
+}
+
+void optimal(int pages[], int n, int f) {
+    int frames[10], faults=0;
+    for(int i=0; i<f; i++) frames[i] = -1;
+    for(int i=0; i<n; i++) {
+        int hit = 0;
+        for(int j=0; j<f; j++) if(frames[j] == pages[i]) { hit = 1; break; }
+        if(!hit) {
+            int replace_idx = -1, farthest = i;
+            for(int j=0; j<f; j++) {
+                if(frames[j] == -1) { replace_idx = j; break; }
+                int k;
+                for(k=i+1; k<n; k++) if(frames[j] == pages[k]) break;
+                if(k > farthest) { farthest = k; replace_idx = j; }
+            }
+            frames[replace_idx] = pages[i];
+            faults++;
+        }
+    }
+    printf("Optimal Faults: %d\n", faults);
+}
+
+int main_program_7() {
+    int pages[] = {7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2};
+    int n = 13, f = 4;
+    fifo(pages, n, f);
+    lru(pages, n, f);
+    optimal(pages, n, f);
+    return 0;
+}
+
+// Ensure you rename the specific `main_program_X` to `int main()` when running individually.
